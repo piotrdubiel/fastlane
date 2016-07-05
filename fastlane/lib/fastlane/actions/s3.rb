@@ -1,3 +1,4 @@
+require 'pry'
 # rubocop:disable Metrics/AbcSize
 require 'fastlane/erb_template_helper'
 require 'ostruct'
@@ -8,6 +9,8 @@ module Fastlane
       S3_IPA_OUTPUT_PATH = :S3_IPA_OUTPUT_PATH
       S3_DSYM_OUTPUT_PATH = :S3_DSYM_OUTPUT_PATH
       S3_PLIST_OUTPUT_PATH = :S3_PLIST_OUTPUT_PATH
+      S3_APK_OUTPUT_PATH = :S3_APK_OUTPUT_PATH
+      S3_BINARY_OUTPUT_PATH = :S3_BINARY_OUTPUT_PATH # Maybe it's a bad idea
       S3_HTML_OUTPUT_PATH = :S3_HTML_OUTPUT_PATH
       S3_VERSION_OUTPUT_PATH = :S3_VERSION_OUTPUT_PATH
     end
@@ -45,6 +48,10 @@ module Fastlane
         params[:version_file_name] = config[:version_file_name]
         params [:acl] = config[:acl]
 
+        # binding.pry
+        manifest = FastlaneCore::ApkFileAnalyser.fetch_manifest_file(config[:apk])
+        # binding.pry
+
         # Pulling parameters for other uses
         s3_region = params[:region]
         s3_subdomain = params[:region] ? "s3-#{params[:region]}" : "s3"
@@ -79,8 +86,8 @@ module Fastlane
         ipa_url = self.upload_file(bucket, ipa_file_name, ipa_file_data, acl)
 
         # Setting action and environment variables
-        Actions.lane_context[SharedValues::S3_IPA_OUTPUT_PATH] = ipa_url
-        ENV[SharedValues::S3_IPA_OUTPUT_PATH.to_s] = ipa_url
+        Actions.lane_context[SharedValues::S3_BINARY_OUTPUT_PATH] = ipa_url
+        ENV[SharedValues::S3_BINARY_OUTPUT_PATH.to_s] = ipa_url
 
         if dsym_file
           dsym_file_basename = File.basename(dsym_file)
@@ -191,7 +198,7 @@ module Fastlane
         Actions.lane_context[SharedValues::S3_VERSION_OUTPUT_PATH] = version_url
         ENV[SharedValues::S3_VERSION_OUTPUT_PATH.to_s] = version_url
 
-        UI.success("Successfully uploaded ipa file to '#{Actions.lane_context[SharedValues::S3_IPA_OUTPUT_PATH]}'")
+        UI.success("Successfully uploaded ipa file to '#{Actions.lane_context[SharedValues::S3_BINARY_OUTPUT_PATH]}'")
 
         return true
       end
@@ -263,6 +270,11 @@ module Fastlane
                                        description: ".ipa file for the build ",
                                        optional: true,
                                        default_value: Actions.lane_context[SharedValues::IPA_OUTPUT_PATH]),
+          FastlaneCore::ConfigItem.new(key: :apk,
+                                       env_name: "",
+                                       description: ".apk file for the build ",
+                                       optional: true,
+                                       default_value: Actions.lane_context[SharedValues::GRADLE_APK_OUTPUT_PATH]),
           FastlaneCore::ConfigItem.new(key: :dsym,
                                        env_name: "",
                                        description: "zipped .dsym package for the build ",
@@ -333,7 +345,7 @@ module Fastlane
 
       def self.output
         [
-          ['S3_IPA_OUTPUT_PATH', 'Direct HTTP link to the uploaded ipa file'],
+          ['S3_BINARY_OUTPUT_PATH', 'Direct HTTP link to the uploaded ipa or apk file'],
           ['S3_DSYM_OUTPUT_PATH', 'Direct HTTP link to the uploaded dsym file'],
           ['S3_PLIST_OUTPUT_PATH', 'Direct HTTP link to the uploaded plist file'],
           ['S3_HTML_OUTPUT_PATH', 'Direct HTTP link to the uploaded HTML file'],
@@ -346,7 +358,7 @@ module Fastlane
       end
 
       def self.is_supported?(platform)
-        platform == :ios
+        [:ios, :android].include? platform
       end
     end
   end

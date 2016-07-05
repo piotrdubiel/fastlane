@@ -3,8 +3,8 @@ source 'https://rubygems.org'
 # Specify your gem's dependencies in .gemspec
 gemspec
 
+gem "fastlane_core", path: "../fastlane_core"
 if `cd ..; git remote -v`.include?("countdown")
-  gem "fastlane_core", path: "../fastlane_core"
   gem "credentials_manager", path: "../credentials_manager"
   gem "spaceship", path: "../spaceship"
   gem "deliver", path: "../deliver"
